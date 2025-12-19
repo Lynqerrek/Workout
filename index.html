@@ -1,0 +1,817 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>FitQuest - Global</title>
+    <script src="https://cdn.tailwindcss.com"></script>
+    <link href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.4.0/css/all.min.css" rel="stylesheet">
+    <style>
+        @import url('https://fonts.googleapis.com/css2?family=Poppins:wght@300;400;600;700;900&display=swap');
+        
+        body {
+            font-family: 'Poppins', sans-serif;
+            background-color: #0f172a; /* Slate 900 */
+            color: #f1f5f9;
+            overflow-x: hidden;
+        }
+
+        /* Compact Scrollbar */
+        ::-webkit-scrollbar { width: 6px; }
+        ::-webkit-scrollbar-track { background: #1e293b; }
+        ::-webkit-scrollbar-thumb { background: #3b82f6; border-radius: 3px; }
+
+        .glass-panel {
+            background: rgba(30, 41, 59, 0.75);
+            backdrop-filter: blur(12px);
+            -webkit-backdrop-filter: blur(12px);
+            border: 1px solid rgba(255, 255, 255, 0.08);
+        }
+
+        .btn-gradient {
+            background: linear-gradient(135deg, #3b82f6 0%, #2563eb 100%);
+            transition: all 0.2s ease;
+            cursor: pointer;
+        }
+        .btn-gradient:hover { transform: translateY(-1px); box-shadow: 0 4px 12px rgba(37, 99, 235, 0.4); }
+        .btn-gradient:active { transform: translateY(0); }
+
+        .btn-outline {
+            border: 1px solid #3b82f6;
+            color: #3b82f6;
+            transition: all 0.2s ease;
+            cursor: pointer;
+        }
+        .btn-outline:hover { background: #3b82f6; color: white; }
+
+        .card-hoverable { transition: all 0.2s ease; cursor: pointer; }
+        .card-hoverable:hover { transform: translateY(-3px); box-shadow: 0 8px 20px -5px rgba(0, 0, 0, 0.3); }
+
+        .fade-in { animation: fadeIn 0.5s cubic-bezier(0.4, 0, 0.2, 1); }
+        @keyframes fadeIn {
+            from { opacity: 0; transform: translateY(10px); }
+            to { opacity: 1; transform: translateY(0); }
+        }
+
+        /* Loading Screen */
+        #loading-screen {
+            position: fixed; inset: 0; z-index: 100;
+            background: #0f172a;
+            display: flex; flex-direction: column;
+            align-items: center; justify-content: center;
+            transition: opacity 0.5s ease;
+        }
+        #loading-screen.fading {
+            opacity: 0;
+            pointer-events: none;
+        }
+
+        .loader {
+            width: 48px; height: 48px;
+            border: 5px solid #3b82f6;
+            border-bottom-color: transparent;
+            border-radius: 50%;
+            animation: rotation 1s linear infinite;
+        }
+        @keyframes rotation { 0% { transform: rotate(0deg); } 100% { transform: rotate(360deg); } }
+
+        .setup-card { border: 2px solid transparent; transition: all 0.3s ease; }
+        .setup-card.selected { border-color: #3b82f6; background: rgba(59, 130, 246, 0.15); }
+
+        .tab-btn.active { border-bottom: 2px solid #3b82f6; color: #3b82f6; }
+    </style>
+</head>
+<body class="min-h-screen flex flex-col text-sm md:text-base">
+
+    <!-- Loading Screen -->
+    <div id="loading-screen">
+        <div class="loader mb-4"></div>
+        <div class="text-xl font-bold tracking-wider">FIT<span class="text-blue-500">QUEST</span></div>
+        <p class="text-gray-400 text-xs mt-2" id="loading-text">Initializing Resources...</p>
+    </div>
+
+    <!-- Navigation -->
+    <nav id="main-nav" class="fixed top-0 w-full z-50 glass-panel border-b border-gray-700 h-14 hidden">
+        <div class="max-w-7xl mx-auto px-4 h-full flex items-center justify-between">
+            <div class="flex items-center space-x-2 cursor-pointer" onclick="app.showSection('dashboard')">
+                <i class="fa-solid fa-dumbbell text-blue-500 text-xl"></i>
+                <span class="text-lg font-bold tracking-wider hidden sm:inline">FIT<span class="text-blue-500">QUEST</span></span>
+            </div>
+            
+            <div class="hidden md:flex space-x-1">
+                <button onclick="app.showSection('dashboard')" class="nav-btn hover:bg-gray-700 px-3 py-1.5 rounded-md text-sm font-medium transition" data-translate="nav_dash">Dashboard</button>
+                <button onclick="app.showSection('workouts')" class="nav-btn hover:bg-gray-700 px-3 py-1.5 rounded-md text-sm font-medium transition" data-translate="nav_work">Workouts</button>
+                <button onclick="app.showSection('diet')" class="nav-btn hover:bg-gray-700 px-3 py-1.5 rounded-md text-sm font-medium transition" data-translate="nav_diet">Nutrition</button>
+            </div>
+
+            <div class="flex items-center space-x-3">
+                <div class="text-right hidden sm:block">
+                    <div class="text-[10px] text-gray-400 uppercase tracking-wider"><span data-translate="level">Level</span> <span id="user-level-display">1</span></div>
+                    <div class="w-20 h-1.5 bg-gray-700 rounded-full mt-0.5">
+                        <div id="xp-bar" class="h-full bg-blue-500 rounded-full transition-all duration-500" style="width: 0%"></div>
+                    </div>
+                </div>
+                <button onclick="app.resetSetup()" class="p-1.5 rounded-md text-gray-400 hover:text-white" title="Settings">
+                    <i class="fa-solid fa-gear"></i>
+                </button>
+                <button class="md:hidden p-1.5 rounded-md text-gray-400 hover:text-white" onclick="document.getElementById('mobile-menu').classList.toggle('hidden')">
+                    <i class="fa-solid fa-bars"></i>
+                </button>
+            </div>
+        </div>
+        <!-- Mobile Menu -->
+        <div id="mobile-menu" class="hidden md:hidden glass-panel border-t border-gray-700 absolute w-full p-2 space-y-1">
+            <button onclick="app.showSection('dashboard')" class="block w-full text-left px-4 py-2 hover:bg-gray-700 rounded" data-translate="nav_dash">Dashboard</button>
+            <button onclick="app.showSection('workouts')" class="block w-full text-left px-4 py-2 hover:bg-gray-700 rounded" data-translate="nav_work">Workouts</button>
+            <button onclick="app.showSection('diet')" class="block w-full text-left px-4 py-2 hover:bg-gray-700 rounded" data-translate="nav_diet">Nutrition</button>
+        </div>
+    </nav>
+
+    <!-- SETUP WIZARD -->
+    <section id="setup-wizard" class="min-h-screen flex items-center justify-center p-4 hidden">
+        <div class="max-w-2xl w-full glass-panel rounded-2xl p-8 fade-in relative z-10">
+            <!-- Step 1: Language -->
+            <div id="setup-step-1" class="text-center">
+                <i class="fa-solid fa-earth-americas text-4xl text-blue-500 mb-4"></i>
+                <h2 class="text-2xl font-bold mb-2">Select Language</h2>
+                <p class="text-gray-400 mb-6">Choose your preferred language to begin.</p>
+                <div class="grid grid-cols-2 sm:grid-cols-4 gap-3 max-h-60 overflow-y-auto mb-6 px-2 custom-scrollbar" id="lang-grid"></div>
+                <button onclick="setupManager.nextStep()" class="btn-gradient px-8 py-2 rounded-full font-bold w-full sm:w-auto">Next <i class="fa-solid fa-arrow-right ml-2"></i></button>
+            </div>
+            <!-- Step 2: Equipment -->
+            <div id="setup-step-2" class="hidden text-center">
+                <i class="fa-solid fa-dumbbell text-4xl text-blue-500 mb-4"></i>
+                <h2 class="text-2xl font-bold mb-2" data-translate="setup_style_title">Training Style</h2>
+                <p class="text-gray-400 mb-6" data-translate="setup_style_desc">What equipment do you have available?</p>
+                <div class="grid grid-cols-1 sm:grid-cols-2 gap-4 mb-8">
+                    <div onclick="setupManager.selectEquipment('calisthenics')" id="opt-calisthenics" class="setup-card glass-panel p-6 rounded-xl cursor-pointer hover:bg-gray-800">
+                        <i class="fa-solid fa-person-running text-3xl mb-3 text-green-400"></i>
+                        <h3 class="font-bold text-lg" data-translate="bodyweight">Bodyweight</h3>
+                        <p class="text-xs text-gray-400 mt-2">Zero equipment. Uses your own mass.</p>
+                    </div>
+                    <div onclick="setupManager.selectEquipment('weights')" id="opt-weights" class="setup-card glass-panel p-6 rounded-xl cursor-pointer hover:bg-gray-800">
+                        <i class="fa-solid fa-dumbbell text-3xl mb-3 text-orange-400"></i>
+                        <h3 class="font-bold text-lg" data-translate="weights">Gym / Backpack</h3>
+                        <p class="text-xs text-gray-400 mt-2">Access to weights OR a loaded backpack.</p>
+                    </div>
+                </div>
+                <button onclick="setupManager.finish()" class="btn-gradient px-8 py-2 rounded-full font-bold w-full sm:w-auto" data-translate="finish_setup">Start Journey</button>
+            </div>
+        </div>
+    </section>
+
+    <!-- MAIN APP CONTENT -->
+    <main id="main-container" class="flex-grow pt-20 pb-6 px-3 max-w-6xl mx-auto w-full space-y-4 hidden">
+        
+        <!-- Dashboard Section -->
+        <div id="dashboard" class="fade-in space-y-4">
+            <div class="glass-panel rounded-xl p-6 text-center relative overflow-hidden">
+                <div class="absolute top-0 right-0 p-3 opacity-5"><i class="fa-solid fa-crown text-9xl"></i></div>
+                <h1 class="text-2xl md:text-3xl font-black mb-2"><span data-translate="welcome">Welcome</span>, <span class="text-blue-500">Athlete</span></h1>
+                <p id="daily-quote" class="text-sm md:text-base text-gray-300 italic mb-5">"Loading motivation..."</p>
+                <div class="flex justify-center gap-8 mb-6">
+                    <div class="bg-gray-800/50 p-3 rounded-lg min-w-[100px]">
+                        <div class="text-2xl font-bold text-blue-400" id="streak-display">0</div>
+                        <div class="text-[10px] uppercase tracking-widest text-gray-500" data-translate="streak">Streak</div>
+                    </div>
+                    <div class="bg-gray-800/50 p-3 rounded-lg min-w-[100px]">
+                        <div class="text-2xl font-bold text-green-400" id="workouts-completed-display">0</div>
+                        <div class="text-[10px] uppercase tracking-widest text-gray-500" data-translate="completed">Workouts</div>
+                    </div>
+                </div>
+                <button onclick="app.showSection('workouts')" class="btn-gradient px-8 py-3 rounded-full font-bold shadow-lg text-white text-sm animate-pulse">
+                    <span data-translate="start_workout">Start Workout</span> <i class="fa-solid fa-arrow-right ml-1"></i>
+                </button>
+            </div>
+            <!-- Widgets -->
+            <div class="grid grid-cols-1 md:grid-cols-2 gap-4">
+                <div class="glass-panel p-4 rounded-xl flex items-center space-x-4 border-l-4 border-green-500">
+                    <div class="bg-green-500/10 p-3 rounded-full text-green-400"><i class="fa-solid fa-utensils text-xl"></i></div>
+                    <div class="flex-grow overflow-hidden">
+                        <h2 class="font-bold text-sm mb-0.5" data-translate="meal_idea">Quick Meal Idea</h2>
+                        <div id="dashboard-meal" class="text-xs text-gray-400 truncate">Loading...</div>
+                    </div>
+                    <button onclick="app.showSection('diet')" class="text-xs btn-outline px-3 py-1 rounded-full" data-translate="view">View</button>
+                </div>
+                <div class="glass-panel p-4 rounded-xl flex items-center space-x-4 border-l-4 border-yellow-500">
+                    <div class="bg-yellow-500/10 p-3 rounded-full text-yellow-400"><i class="fa-solid fa-lightbulb text-xl"></i></div>
+                    <div>
+                        <h2 class="font-bold text-sm mb-0.5" data-translate="pro_tip">Pro Tip</h2>
+                        <p id="pro-tip" class="text-xs text-gray-400 leading-tight">Consistency beats intensity.</p>
+                    </div>
+                </div>
+            </div>
+        </div>
+
+        <!-- Workouts Section -->
+        <div id="workouts" class="hidden fade-in space-y-4">
+            <!-- Mode Switcher -->
+            <div class="flex justify-center space-x-6 border-b border-gray-700 pb-2 mb-4">
+                <button onclick="workoutManager.switchView('plans')" id="tab-plans" class="tab-btn pb-2 font-bold text-gray-400 transition" data-translate="plans">Plans</button>
+                <button onclick="workoutManager.switchView('exercises')" id="tab-exercises" class="tab-btn pb-2 font-bold text-gray-400 transition" data-translate="exercises">Exercises</button>
+            </div>
+
+            <!-- Filters (Only for Exercises view) -->
+            <div id="workout-filters" class="hidden flex-col sm:flex-row justify-between items-end sm:items-center pb-3">
+                <div>
+                    <h2 class="text-xl font-bold" data-translate="exercise_lib">Library</h2>
+                </div>
+                <div class="mt-3 sm:mt-0 flex space-x-1 overflow-x-auto w-full sm:w-auto pb-1 sm:pb-0 scrollbar-hide">
+                    <button onclick="workoutManager.filter('all')" class="filter-btn active bg-blue-600 text-white px-3 py-1 rounded-full text-xs whitespace-nowrap">All</button>
+                    <button onclick="workoutManager.filter('chest')" class="filter-btn bg-gray-800 hover:bg-gray-700 px-3 py-1 rounded-full text-xs whitespace-nowrap" data-translate="chest">Chest</button>
+                    <button onclick="workoutManager.filter('back')" class="filter-btn bg-gray-800 hover:bg-gray-700 px-3 py-1 rounded-full text-xs whitespace-nowrap" data-translate="back">Back</button>
+                    <button onclick="workoutManager.filter('legs')" class="filter-btn bg-gray-800 hover:bg-gray-700 px-3 py-1 rounded-full text-xs whitespace-nowrap" data-translate="legs">Legs</button>
+                    <button onclick="workoutManager.filter('abs')" class="filter-btn bg-gray-800 hover:bg-gray-700 px-3 py-1 rounded-full text-xs whitespace-nowrap" data-translate="abs">Abs</button>
+                    <button onclick="workoutManager.filter('arms')" class="filter-btn bg-gray-800 hover:bg-gray-700 px-3 py-1 rounded-full text-xs whitespace-nowrap" data-translate="arms">Arms</button>
+                    <button onclick="workoutManager.filter('shoulders')" class="filter-btn bg-gray-800 hover:bg-gray-700 px-3 py-1 rounded-full text-xs whitespace-nowrap" data-translate="shoulders">Shldrs</button>
+                    <button onclick="workoutManager.filter('cardio')" class="filter-btn bg-gray-800 hover:bg-gray-700 px-3 py-1 rounded-full text-xs whitespace-nowrap" data-translate="cardio">Cardio</button>
+                </div>
+            </div>
+
+            <!-- Plan Header (Only for Plan View Mode) -->
+            <div id="plan-header" class="hidden mb-4 p-4 glass-panel rounded-xl border-l-4 border-blue-500">
+                <div class="flex justify-between items-start">
+                    <div>
+                        <h2 id="active-plan-title" class="text-xl font-bold text-white">Plan Name</h2>
+                        <p id="active-plan-desc" class="text-xs text-gray-400">Description</p>
+                    </div>
+                    <button onclick="workoutManager.switchView('plans')" class="text-xs bg-gray-700 hover:bg-gray-600 px-3 py-1 rounded text-white"><i class="fa-solid fa-arrow-left mr-1"></i> Back</button>
+                </div>
+            </div>
+
+            <!-- Grid -->
+            <div id="workout-grid" class="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4"></div>
+        </div>
+
+        <!-- Diet Section -->
+        <div id="diet" class="hidden fade-in space-y-4">
+            <!-- Diet Sub-Nav -->
+            <div class="flex justify-center space-x-4 border-b border-gray-700 pb-2 mb-4">
+                <button onclick="dietManager.switchView('search')" id="tab-diet-search" class="tab-diet-btn active pb-2 text-sm font-bold text-gray-400 transition" data-translate="recipes">Recipes</button>
+                <button onclick="dietManager.switchView('packs')" id="tab-diet-packs" class="tab-diet-btn pb-2 text-sm font-bold text-gray-400 transition" data-translate="diet_packs">Diet Packs</button>
+                <button onclick="dietManager.switchView('fridge')" id="tab-diet-fridge" class="tab-diet-btn pb-2 text-sm font-bold text-gray-400 transition" data-translate="fridge">Essentials</button>
+            </div>
+
+            <!-- Search View -->
+            <div id="diet-view-search">
+                <div class="text-center mb-4">
+                    <h2 class="text-xl font-bold mb-1" data-translate="fuel_body">Fuel Your Body</h2>
+                    <div class="max-w-sm mx-auto mt-4 relative">
+                        <input type="text" id="meal-search" class="w-full bg-gray-800 border border-gray-700 rounded-full py-2 px-4 pl-10 text-sm focus:outline-none focus:border-blue-500 text-white placeholder-gray-500">
+                        <i class="fa-solid fa-search absolute left-3.5 top-2.5 text-gray-500 text-xs"></i>
+                        <button onclick="dietManager.search()" class="absolute right-1.5 top-1.5 bg-blue-600 hover:bg-blue-700 text-white rounded-full px-3 py-0.5 text-xs font-bold h-7" data-translate="go">Go</button>
+                    </div>
+                </div>
+                <div id="diet-results" class="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4"></div>
+            </div>
+
+            <!-- Diet Packs View -->
+            <div id="diet-view-packs" class="hidden grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4">
+                <!-- Injected via JS -->
+            </div>
+
+            <!-- Fridge View -->
+            <div id="diet-view-fridge" class="hidden grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4">
+                <!-- Injected via JS -->
+            </div>
+        </div>
+    </main>
+
+    <!-- Success Modal -->
+    <div id="success-modal" class="fixed inset-0 bg-black bg-opacity-90 flex items-center justify-center z-[80] hidden">
+        <div class="glass-panel p-6 rounded-2xl max-w-xs w-full text-center border-2 border-green-500 transform scale-90 transition-transform duration-300" id="modal-content">
+            <div class="w-16 h-16 bg-green-500 rounded-full flex items-center justify-center mx-auto mb-3 animate-bounce"><i class="fa-solid fa-check text-2xl text-white"></i></div>
+            <h3 class="text-xl font-bold text-white mb-1" data-translate="workout_complete">Workout Complete!</h3>
+            <p class="text-gray-300 mb-4 text-sm">+50 XP</p>
+            <button onclick="app.closeModal()" class="btn-gradient w-full py-2 rounded-lg font-bold text-sm" data-translate="keep_going">Keep Grinding</button>
+        </div>
+    </div>
+
+    <!-- Description Modal -->
+    <div id="desc-modal" class="fixed inset-0 bg-black bg-opacity-90 flex items-center justify-center z-[90] hidden fade-in">
+        <div class="glass-panel p-6 rounded-2xl max-w-md w-full mx-4 border border-gray-600 relative">
+            <button onclick="document.getElementById('desc-modal').classList.add('hidden')" class="absolute top-4 right-4 text-gray-400 hover:text-white"><i class="fa-solid fa-times text-lg"></i></button>
+            <div id="desc-content"></div>
+        </div>
+    </div>
+
+    <!-- Scripts -->
+    <script>
+        window.onerror = function() {
+            const loader = document.getElementById('loading-screen');
+            if (loader) { loader.classList.add('fading'); loader.classList.add('hidden'); }
+        };
+
+        const translator = {
+            currentLang: 'en',
+            supportedLangs: [
+                {code:'en', flag:'🇺🇸', name:'English'}, {code:'es', flag:'🇪🇸', name:'Español'}, {code:'fr', flag:'🇫🇷', name:'Français'},
+                {code:'de', flag:'🇩🇪', name:'Deutsch'}, {code:'it', flag:'🇮🇹', name:'Italiano'}, {code:'pt', flag:'🇵🇹', name:'Português'},
+                {code:'ru', flag:'🇷🇺', name:'Русский'}, {code:'zh', flag:'🇨🇳', name:'中文'}, {code:'ja', flag:'🇯🇵', name:'日本語'}
+            ],
+            translations: {
+                nav_dash: { en:"Dashboard", es:"Tablero", fr:"Tableau", de:"Dashboard" },
+                nav_work: { en:"Workouts", es:"Ejercicios", fr:"Exercices", de:"Training" },
+                nav_diet: { en:"Nutrition", es:"Nutrición", fr:"Nutrition", de:"Ernährung" },
+                plans: { en:"Plans", es:"Planes", fr:"Plans", de:"Pläne" },
+                exercises: { en:"Exercises", es:"Ejercicios", fr:"Exercices", de:"Übungen" },
+                welcome: { en:"Welcome", es:"Bienvenido", fr:"Bienvenue", de:"Willkommen" },
+                streak: { en:"Streak", es:"Racha", fr:"Série", de:"Serie" },
+                completed: { en:"Workouts", es:"Hechos", fr:"Fini", de:"Fertig" },
+                start_workout: { en:"Start Workout", es:"Empezar", fr:"Commencer", de:"Starten" },
+                setup_style_title: { en:"Training Style", es:"Estilo", fr:"Style", de:"Stil" },
+                setup_style_desc: { en:"Choose equipment", es:"Elige equipo", fr:"Choix matériel", de:"Ausrüstung" },
+                bodyweight: { en:"Bodyweight", es:"Peso corporal", fr:"Poids du corps", de:"Körpergewicht" },
+                weights: { en:"Gym / Backpack", es:"Pesas / Mochila", fr:"Musculation", de:"Hanteln / Rucksack" },
+                finish_setup: { en:"Start Journey", es:"Comenzar", fr:"C'est parti", de:"Los geht's" },
+                chest: { en:"Chest", es:"Pecho", fr:"Pect.", de:"Brust" },
+                back: { en:"Back", es:"Espalda", fr:"Dos", de:"Rücken" },
+                legs: { en:"Legs", es:"Piernas", fr:"Jambes", de:"Beine" },
+                abs: { en:"Abs", es:"Abs", fr:"Abdos", de:"Bauch" },
+                arms: { en:"Arms", es:"Brazos", fr:"Bras", de:"Arme" },
+                shoulders: { en:"Shldrs", es:"Hombros", fr:"Épaules", de:"Schulter" },
+                cardio: { en:"Cardio", es:"Cardio", fr:"Cardio", de:"Kardio" },
+                mark_complete: { en:"Mark Complete", es:"Completar", fr:"Terminer", de:"Abschließen" },
+                view: { en:"View", es:"Ver", fr:"Voir", de:"Ansehen" },
+                details: { en:"Details", es:"Detalles", fr:"Détails", de:"Details" },
+                tips: { en:"Tips", es:"Consejos", fr:"Astuces", de:"Tipps" },
+                start_plan: { en:"Start Plan", es:"Iniciar Plan", fr:"Lancer Plan", de:"Plan Starten" },
+                workout_complete: { en:"Workout Complete!", es:"¡Terminado!", fr:"Terminé!", de:"Fertig!" },
+                keep_going: { en:"Keep Going", es:"Seguir", fr:"Continuer", de:"Weiter" },
+                recipes: { en: "Recipes", es: "Recetas", fr: "Recettes", de: "Rezepte" },
+                diet_packs: { en: "Diet Packs", es: "Paquetes de Dieta", fr: "Packs Diète", de: "Diät-Pakete" },
+                fridge: { en: "Essentials", es: "Esenciales", fr: "Essentiels", de: "Grundlagen" }
+            },
+            init() {
+                try {
+                    const grid = document.getElementById('lang-grid');
+                    if(grid) {
+                        this.supportedLangs.forEach(lang => {
+                            const btn = document.createElement('button');
+                            btn.className = 'flex items-center space-x-2 p-2 rounded hover:bg-gray-700 border border-transparent hover:border-blue-500 transition text-left w-full';
+                            btn.onclick = () => {
+                                document.querySelectorAll('#lang-grid button').forEach(b => b.classList.remove('bg-blue-600'));
+                                btn.classList.add('bg-blue-600');
+                                this.previewLanguage(lang.code);
+                            };
+                            btn.innerHTML = `<span class="text-xl">${lang.flag}</span><span class="text-xs font-bold">${lang.name}</span>`;
+                            grid.appendChild(btn);
+                        });
+                    }
+                } catch(e) {}
+            },
+            previewLanguage(lang) { this.currentLang = lang; this.apply(); },
+            setLanguage(lang) { this.currentLang = lang; try { localStorage.setItem('fitquest_lang', lang); } catch(e){} this.apply(); },
+            get(key) { const map = this.translations[key]; if (!map) return key; return map[this.currentLang] || map['en'] || key; },
+            apply() {
+                document.querySelectorAll('[data-translate]').forEach(el => { el.innerText = this.get(el.getAttribute('data-translate')); });
+                if (workoutManager.currentView) workoutManager.refresh();
+                if (dietManager.currentView !== 'search') dietManager.refresh();
+            }
+        };
+
+        const setupManager = {
+            selectedEquipment: null,
+            nextStep() { document.getElementById('setup-step-1').classList.add('hidden'); document.getElementById('setup-step-2').classList.remove('hidden'); },
+            selectEquipment(type) { this.selectedEquipment = type; document.querySelectorAll('.setup-card').forEach(c => c.classList.remove('selected')); document.getElementById(`opt-${type}`).classList.add('selected'); },
+            finish() {
+                if (!this.selectedEquipment) { alert("Please select a training style."); return; }
+                app.state.equipment = this.selectedEquipment;
+                app.state.setupComplete = true;
+                translator.setLanguage(translator.currentLang);
+                app.saveState();
+                document.getElementById('setup-wizard').classList.add('hidden');
+                document.getElementById('main-nav').classList.remove('hidden');
+                document.getElementById('main-container').classList.remove('hidden');
+                app.showSection('dashboard');
+                workoutManager.init();
+            }
+        };
+
+        const app = {
+            state: { xp: 0, level: 1, streak: 0, lastWorkoutDate: null, workoutsCompleted: 0, setupComplete: false, equipment: 'weights' },
+            init() {
+                try { this.loadState(); } catch(e) {}
+                try { translator.init(); } catch(e) {}
+                setTimeout(() => {
+                    const loader = document.getElementById('loading-screen');
+                    loader.classList.add('fading');
+                    setTimeout(() => loader.classList.add('hidden'), 500);
+                    if (!this.state.setupComplete) {
+                        document.getElementById('setup-wizard').classList.remove('hidden');
+                        try { const match = translator.supportedLangs.find(l => l.code === (navigator.language || 'en').split('-')[0]); if(match) translator.previewLanguage(match.code); } catch(e) {}
+                    } else {
+                        try { const savedLang = localStorage.getItem('fitquest_lang'); if(savedLang) translator.setLanguage(savedLang); } catch(e){}
+                        document.getElementById('main-nav').classList.remove('hidden');
+                        document.getElementById('main-container').classList.remove('hidden');
+                        this.showSection('dashboard');
+                    }
+                    motivationManager.init();
+                    workoutManager.init();
+                    dietManager.init();
+                    this.updateUI();
+                }, 1000);
+            },
+            loadState() {
+                try {
+                    const saved = localStorage.getItem('fitquest_state');
+                    if (saved) this.state = { ...this.state, ...JSON.parse(saved) };
+                    const today = new Date().toDateString();
+                    if (this.state.lastWorkoutDate && this.state.lastWorkoutDate !== today) {
+                        const days = Math.ceil(Math.abs(new Date() - new Date(this.state.lastWorkoutDate)) / (86400000));
+                        if (days > 2) this.state.streak = 0;
+                    }
+                } catch(e) {}
+            },
+            saveState() { try { localStorage.setItem('fitquest_state', JSON.stringify(this.state)); } catch(e) {} this.updateUI(); },
+            resetSetup() { if(confirm("Reset app settings?")) { this.state.setupComplete = false; this.saveState(); location.reload(); } },
+            showSection(id) {
+                ['dashboard', 'workouts', 'diet'].forEach(s => document.getElementById(s).classList.add('hidden'));
+                document.getElementById(id).classList.remove('hidden');
+                document.getElementById('mobile-menu').classList.add('hidden');
+                window.scrollTo(0,0);
+            },
+            completeWorkout(xpAmount = 50) {
+                const today = new Date().toDateString();
+                if (this.state.lastWorkoutDate !== today) { this.state.streak++; this.state.lastWorkoutDate = today; }
+                this.state.workoutsCompleted++;
+                this.addXP(xpAmount);
+                this.saveState();
+                const modal = document.getElementById('success-modal');
+                modal.classList.remove('hidden');
+                setTimeout(() => document.getElementById('modal-content').classList.replace('scale-90', 'scale-100'), 10);
+            },
+            closeModal() { document.getElementById('success-modal').classList.add('hidden'); document.getElementById('modal-content').classList.replace('scale-100', 'scale-90'); },
+            addXP(amount) { this.state.xp += amount; const nextLevel = Math.floor(this.state.xp / 100) + 1; if (nextLevel > this.state.level) this.state.level = nextLevel; },
+            updateUI() {
+                document.getElementById('streak-display').innerText = this.state.streak;
+                document.getElementById('workouts-completed-display').innerText = this.state.workoutsCompleted;
+                document.getElementById('user-level-display').innerText = this.state.level;
+                const progress = ((this.state.xp - ((this.state.level - 1) * 100)) / 100) * 100;
+                document.getElementById('xp-bar').style.width = `${Math.min(progress, 100)}%`;
+            }
+        };
+
+        const motivationManager = {
+            quotes: ["The only bad workout is the one that didn't happen.", "Action is the foundational key to all success.", "Don't stop when you're tired. Stop when you're done."],
+            init() { const el = document.getElementById('daily-quote'); if(el) el.innerText = `"${this.quotes[Math.floor(Math.random() * this.quotes.length)]}"`; }
+        };
+
+        const workoutManager = {
+            currentView: 'plans', 
+            currentFilter: 'all',
+            exercises: [],
+            
+            // FULL DATABASE - RESTORED AND EXPANDED
+            db: [
+                // Chest
+                { id: 'c1', name: "Push Ups", muscle: "chest", eq: "bodyweight", diff: "Beginner", desc: "Start in plank position. Lower chest to floor, push back up.", tips: "Keep core tight. Don't flare elbows." },
+                { id: 'c2', name: "Wide Push Ups", muscle: "chest", eq: "bodyweight", diff: "Intermediate", desc: "Hands wider than shoulders to target outer chest.", tips: "Go deep for a stretch." },
+                { id: 'c3', name: "Diamond Push Ups", muscle: "chest", eq: "bodyweight", diff: "Expert", desc: "Hands close together forming a diamond.", tips: "Focus on triceps and inner chest." },
+                { id: 'c4', name: "Archer Push Ups", muscle: "chest", eq: "bodyweight", diff: "Expert", desc: "Shift weight to one side while extending other arm.", tips: "Keep straight arm purely for balance." },
+                { id: 'c5', name: "Bench Press", muscle: "chest", eq: "weights", diff: "Intermediate", desc: "Barbell press on flat bench.", tips: "Retract scapula. Arch back slightly." },
+                { id: 'c6', name: "Incline Dumbbell Press", muscle: "chest", eq: "weights", diff: "Intermediate", desc: "Press on 30-45 degree incline.", tips: "Targets upper chest clavicular head." },
+                { id: 'c7', name: "Dumbbell Flys", muscle: "chest", eq: "weights", diff: "Intermediate", desc: "Arms extended, lower weights in arc motion.", tips: "Visualize hugging a tree." },
+                { id: 'c8', name: "Decline Push Ups", muscle: "chest", eq: "bodyweight", diff: "Intermediate", desc: "Feet elevated on a chair/bench.", tips: "Targets upper chest fibers." },
+                { id: 'c9', name: "Cable Crossovers", muscle: "chest", eq: "weights", diff: "Intermediate", desc: "Pull cables from high to low.", tips: "Squeeze chest at the bottom." },
+                { id: 'c10', name: "Dips", muscle: "chest", eq: "bodyweight", diff: "Intermediate", desc: "Lean forward on dip bars.", tips: "Lean forward for chest, upright for triceps." },
+
+                // Back
+                { id: 'b1', name: "Pull Ups", muscle: "back", eq: "bodyweight", diff: "Intermediate", desc: "Hang from bar, pull chin over bar.", tips: "Drive elbows down to hips." },
+                { id: 'b2', name: "Chin Ups", muscle: "back", eq: "bodyweight", diff: "Beginner", desc: "Underhand grip pull up.", tips: "Use biceps, but focus on lats." },
+                { id: 'b3', name: "Australian Pull Ups", muscle: "back", eq: "bodyweight", diff: "Beginner", desc: "Body row under a low bar.", tips: "Keep body straight like a plank." },
+                { id: 'b4', name: "Superman", muscle: "back", eq: "bodyweight", diff: "Beginner", desc: "Lie face down, lift arms and legs.", tips: "Hold at the top for 2 seconds." },
+                { id: 'b5', name: "Dumbbell Rows", muscle: "back", eq: "weights", diff: "Beginner", desc: "One arm row supported by bench.", tips: "Keep back flat, pull to pocket." },
+                { id: 'b6', name: "Deadlift", muscle: "back", eq: "weights", diff: "Expert", desc: "Lift barbell from floor to hip level.", tips: "Hinge at hips, keep spine neutral." },
+                { id: 'b7', name: "Lat Pulldown", muscle: "back", eq: "weights", diff: "Beginner", desc: "Machine pulldown to chest.", tips: "Don't swing backwards." },
+                { id: 'b8', name: "T-Bar Row", muscle: "back", eq: "weights", diff: "Intermediate", desc: "Rowing a anchored barbell.", tips: "Keep chest up." },
+                { id: 'b9', name: "Face Pulls", muscle: "back", eq: "weights", diff: "Intermediate", desc: "Pull rope to forehead.", tips: "Great for rear delts and posture." },
+                { id: 'b10', name: "Renegade Row", muscle: "back", eq: "weights", diff: "Expert", desc: "Plank position, row dumbbell.", tips: "Anti-rotation core challenge." },
+
+                // Legs
+                { id: 'l1', name: "Squats", muscle: "legs", eq: "bodyweight", diff: "Beginner", desc: "Hips back, knees out, chest up.", tips: "Break parallel if mobility allows." },
+                { id: 'l2', name: "Lunges", muscle: "legs", eq: "bodyweight", diff: "Beginner", desc: "Step forward, lower back knee.", tips: "Keep front heel down." },
+                { id: 'l3', name: "Bulgarian Split Squat", muscle: "legs", eq: "bodyweight", diff: "Expert", desc: "One foot elevated behind you.", tips: "Torture but effective for glutes." },
+                { id: 'l4', name: "Glute Bridge", muscle: "legs", eq: "bodyweight", diff: "Beginner", desc: "Lie on back, lift hips.", tips: "Squeeze glutes at top." },
+                { id: 'l5', name: "Calf Raises", muscle: "legs", eq: "bodyweight", diff: "Beginner", desc: "Lift heels off ground.", tips: "Pause at top and bottom." },
+                { id: 'l6', name: "Goblet Squat", muscle: "legs", eq: "weights", diff: "Beginner", desc: "Hold weight at chest, squat.", tips: "Elbows inside knees at bottom." },
+                { id: 'l7', name: "Romanian Deadlift", muscle: "legs", eq: "weights", diff: "Intermediate", desc: "Hinge hips back with slight knee bend.", tips: "Feel stretch in hamstrings." },
+                { id: 'l8', name: "Leg Press", muscle: "legs", eq: "weights", diff: "Beginner", desc: "Machine press.", tips: "Don't lock knees at top." },
+                { id: 'l9', name: "Box Jumps", muscle: "legs", eq: "bodyweight", diff: "Intermediate", desc: "Jump onto a box softly.", tips: "Land in a squat." },
+                { id: 'l10', name: "Side Lunges", muscle: "legs", eq: "bodyweight", diff: "Intermediate", desc: "Step to side, keep other leg straight.", tips: "Hips back." },
+
+                // Abs
+                { id: 'a1', name: "Plank", muscle: "abs", eq: "bodyweight", diff: "Beginner", desc: "Hold pushup position on elbows.", tips: "Squeeze glutes to prevent sagging." },
+                { id: 'a2', name: "Crunches", muscle: "abs", eq: "bodyweight", diff: "Beginner", desc: "Shoulders off floor.", tips: "Exhale on way up." },
+                { id: 'a3', name: "Leg Raises", muscle: "abs", eq: "bodyweight", diff: "Intermediate", desc: "Lie flat, lift legs to 90 degrees.", tips: "Keep lower back pressed to floor." },
+                { id: 'a4', name: "Russian Twists", muscle: "abs", eq: "bodyweight", diff: "Intermediate", desc: "Seated, rotate torso side to side.", tips: "Follow hands with eyes." },
+                { id: 'a5', name: "Mountain Climbers", muscle: "abs", eq: "bodyweight", diff: "Intermediate", desc: "Plank position, drive knees to chest.", tips: "Keep hips low." },
+                { id: 'a6', name: "Bicycle Crunches", muscle: "abs", eq: "bodyweight", diff: "Intermediate", desc: "Elbow to opposite knee.", tips: "Slow and controlled." },
+                { id: 'a7', name: "Hanging Leg Raise", muscle: "abs", eq: "bodyweight", diff: "Expert", desc: "Hang from bar, lift legs.", tips: "Avoid swinging." },
+                { id: 'a8', name: "Ab Rollout", muscle: "abs", eq: "weights", diff: "Expert", desc: "Wheel rollout on knees.", tips: "Keep core braced." },
+                { id: 'a9', name: "Side Plank", muscle: "abs", eq: "bodyweight", diff: "Intermediate", desc: "Prop on one elbow.", tips: "Straight line head to heels." },
+                { id: 'a10', name: "V-Ups", muscle: "abs", eq: "bodyweight", diff: "Expert", desc: "Lift torso and legs to touch toes.", tips: "Balance on tailbone." },
+
+                // Shoulders
+                { id: 's1', name: "Pike Push Ups", muscle: "shoulders", eq: "bodyweight", diff: "Intermediate", desc: "V-shape pushup.", tips: "Head touches floor ahead of hands." },
+                { id: 's2', name: "Handstand Hold", muscle: "shoulders", eq: "bodyweight", diff: "Expert", desc: "Hold against wall.", tips: "Push floor away." },
+                { id: 's3', name: "Overhead Press", muscle: "shoulders", eq: "weights", diff: "Intermediate", desc: "Press barbell/dumbbells overhead.", tips: "Do not arch back excessively." },
+                { id: 's4', name: "Lateral Raises", muscle: "shoulders", eq: "weights", diff: "Beginner", desc: "Lift weights to side.", tips: "Lead with elbows." },
+                { id: 's5', name: "Front Raises", muscle: "shoulders", eq: "weights", diff: "Beginner", desc: "Lift weights to front.", tips: "Control the descent." },
+                { id: 's6', name: "Arnold Press", muscle: "shoulders", eq: "weights", diff: "Intermediate", desc: "Rotate palms while pressing.", tips: "Smooth rotation." },
+                { id: 's7', name: "Shrugs", muscle: "shoulders", eq: "weights", diff: "Beginner", desc: "Lift shoulders to ears.", tips: "Pause at top." },
+                { id: 's8', name: "Upright Row", muscle: "shoulders", eq: "weights", diff: "Intermediate", desc: "Pull weight up chest line.", tips: "Elbows higher than wrists." },
+
+                // Arms
+                { id: 'ar1', name: "Bicep Curls", muscle: "arms", eq: "weights", diff: "Beginner", desc: "Standard curl.", tips: "Keep elbows pinned to side." },
+                { id: 'ar2', name: "Hammer Curls", muscle: "arms", eq: "weights", diff: "Beginner", desc: "Neutral grip curl.", tips: "Targets brachialis/forearm." },
+                { id: 'ar3', name: "Tricep Dips", muscle: "arms", eq: "bodyweight", diff: "Intermediate", desc: "Dip on chair/bench.", tips: "Keep back close to bench." },
+                { id: 'ar4', name: "Skullcrushers", muscle: "arms", eq: "weights", diff: "Intermediate", desc: "Lying tricep extension.", tips: "Elbows point to ceiling." },
+                { id: 'ar5', name: "Tricep Pushdown", muscle: "arms", eq: "weights", diff: "Beginner", desc: "Cable machine pushdown.", tips: "Only forearms move." },
+
+                // Cardio
+                { id: 'ca1', name: "Burpees", muscle: "cardio", eq: "bodyweight", diff: "Expert", desc: "Pushup to jump.", tips: "Pace yourself." },
+                { id: 'ca2', name: "Jumping Jacks", muscle: "cardio", eq: "bodyweight", diff: "Beginner", desc: "Standard hop.", tips: "Land softly." },
+                { id: 'ca3', name: "High Knees", muscle: "cardio", eq: "bodyweight", diff: "Beginner", desc: "Run in place knees high.", tips: "Pump arms." },
+                { id: 'ca4', name: "Jump Rope", muscle: "cardio", eq: "weights", diff: "Intermediate", desc: "Skipping.", tips: "Stay on toes." },
+                { id: 'ca5', name: "Sprints", muscle: "cardio", eq: "bodyweight", diff: "Intermediate", desc: "Max effort run.", tips: "Drive with legs." },
+
+                // Backpack / Weights Specials
+                { id: 'bp1', name: "Backpack Squat", muscle: "legs", eq: "weights", diff: "Beginner", desc: "Wear a loaded backpack or hold it at chest.", tips: "Keep chest up, don't let backpack pull you forward." },
+                { id: 'bp2', name: "Backpack Row", muscle: "back", eq: "weights", diff: "Intermediate", desc: "Bend over, pull backpack straps to hip.", tips: "Keep back flat. Fill bag with books/water." },
+                { id: 'bp3', name: "Backpack Pushup", muscle: "chest", eq: "weights", diff: "Expert", desc: "Wear backpack while doing pushups.", tips: "Ensure straps are tight so it doesn't slide." },
+                { id: 'bp4', name: "Backpack Overhead Press", muscle: "shoulders", eq: "weights", diff: "Intermediate", desc: "Press backpack from chest to overhead.", tips: "Hold by the sides or top handle." },
+                { id: 'bp5', name: "Backpack Lunge", muscle: "legs", eq: "weights", diff: "Intermediate", desc: "Wear backpack, perform walking lunges.", tips: "Keep torso upright." },
+                { id: 'bp6', name: "Backpack Curl", muscle: "arms", eq: "weights", diff: "Beginner", desc: "Hold top handle, curl to chest.", tips: "Elbows pinned to sides." },
+                { id: 'bp7', name: "Backpack Swing", muscle: "legs", eq: "weights", diff: "Intermediate", desc: "Like a kettlebell swing holding the top handle.", tips: "Drive with hips, not arms." },
+                { id: 'bp8', name: "Backpack Floor Press", muscle: "chest", eq: "weights", diff: "Intermediate", desc: "Lie on floor, press backpack up.", tips: "Don't let elbows bang the floor." },
+                { id: 'bp9', name: "Backpack Russian Twist", muscle: "abs", eq: "weights", diff: "Expert", desc: "Hold backpack, twist torso.", tips: "Controlled movement." },
+                { id: 'bp10', name: "Backpack Carry", muscle: "cardio", eq: "weights", diff: "Beginner", desc: "Rucking: Walk fast with heavy pack.", tips: "Posture is key." },
+            ],
+
+            plans: [
+                { id: 'p1', name: "Full Body Beginner", eq: "bodyweight", diff: "Beginner", exercises: ['c1', 'b3', 'l1', 'l2', 'a1', 'ca2'] },
+                { id: 'p2', name: "Upper Body Power", eq: "weights", diff: "Intermediate", exercises: ['c5', 'b5', 's3', 'c9', 'b7', 'ar1'] },
+                { id: 'p3', name: "Leg Day Destroyer", eq: "weights", diff: "Expert", exercises: ['l1', 'l7', 'l6', 'l3', 'l5'] },
+                { id: 'p4', name: "Core Crusher", eq: "bodyweight", diff: "Intermediate", exercises: ['a1', 'a3', 'a4', 'a6', 'a9'] },
+                { id: 'p5', name: "Spartan 300", eq: "bodyweight", diff: "Expert", exercises: ['b1', 'b6', 'c1', 'l9', 'c8', 'b2'] },
+                { id: 'p6', name: "Calisthenics Basics", eq: "bodyweight", diff: "Beginner", exercises: ['c1', 'l1', 'l2', 'b3', 'a1'] },
+                { id: 'p7', name: "Dumbbell Only Upper", eq: "weights", diff: "Beginner", exercises: ['c7', 'b5', 's4', 'ar1', 'ar4'] },
+                { id: 'p8', name: "HIIT Cardio", eq: "bodyweight", diff: "Expert", exercises: ['ca1', 'a5', 'ca3', 'l9', 'ca5'] },
+                { id: 'p9', name: "Home Warrior (Backpack)", eq: "weights", diff: "Intermediate", exercises: ['bp1', 'bp3', 'bp2', 'bp4', 'bp5', 'bp9'] },
+            ],
+
+            init() {
+                const userEq = app.state.equipment;
+                // If calisthenics, filter out weights/backpack. If weights, keep all (since backpack counts as weights/gym)
+                this.exercises = (userEq === 'calisthenics') ? this.db.filter(e => e.eq === 'bodyweight') : this.db;
+                this.switchView('plans'); 
+            },
+
+            switchView(view) {
+                this.currentView = view;
+                document.querySelectorAll('.tab-btn').forEach(b => b.classList.remove('active'));
+                
+                // FIXED: Check if the tab button exists before trying to access classList
+                const activeTab = document.getElementById(`tab-${view}`);
+                if (activeTab) {
+                    activeTab.classList.add('active');
+                } else if (view === 'activePlan') {
+                    // Keep 'plans' tab active visually when viewing a specific plan
+                    const plansTab = document.getElementById('tab-plans');
+                    if(plansTab) plansTab.classList.add('active');
+                }
+
+                const filterBar = document.getElementById('workout-filters');
+                const planHeader = document.getElementById('plan-header');
+                
+                if (view === 'plans') {
+                    filterBar.classList.remove('flex'); filterBar.classList.add('hidden');
+                    planHeader.classList.add('hidden');
+                    this.renderPlans();
+                } else if (view === 'exercises') {
+                    filterBar.classList.remove('hidden'); filterBar.classList.add('flex');
+                    planHeader.classList.add('hidden');
+                    this.renderExercises(this.exercises, 'all');
+                } else if (view === 'activePlan') {
+                    filterBar.classList.remove('flex'); filterBar.classList.add('hidden');
+                    planHeader.classList.remove('hidden');
+                }
+            },
+
+            filter(category) {
+                this.currentFilter = category;
+                document.querySelectorAll('.filter-btn').forEach(btn => {
+                    const isActive = btn.innerText.toLowerCase() === category || (category === 'all' && btn.innerText === 'All') || btn.getAttribute('data-translate') === category;
+                    btn.classList.toggle('bg-blue-600', isActive); btn.classList.toggle('text-white', isActive); btn.classList.toggle('bg-gray-800', !isActive);
+                });
+                const list = (category === 'all') ? this.exercises : this.exercises.filter(ex => ex.muscle === category);
+                this.renderExercises(list);
+            },
+
+            renderPlans() {
+                const grid = document.getElementById('workout-grid');
+                grid.innerHTML = '';
+                const userEq = app.state.equipment;
+                const validPlans = this.plans.filter(p => userEq === 'weights' || p.eq === 'bodyweight');
+
+                validPlans.forEach(p => {
+                    const card = document.createElement('div');
+                    card.className = 'glass-panel p-5 rounded-xl card-hoverable flex flex-col justify-between border-t-4 border-blue-500';
+                    card.onclick = () => this.loadPlan(p);
+                    card.innerHTML = `
+                        <div>
+                            <div class="flex justify-between items-start mb-2">
+                                <h3 class="font-bold text-lg">${p.name}</h3>
+                                <span class="text-[10px] bg-gray-700 px-2 py-1 rounded text-gray-300">${p.eq === 'bodyweight' ? 'BW' : 'GYM/HOME'}</span>
+                            </div>
+                            <p class="text-xs text-gray-400 mb-4">${p.exercises.length} Exercises • ${p.diff}</p>
+                            <div class="space-y-1">
+                                ${p.exercises.slice(0,3).map(eid => {
+                                    const ex = this.db.find(e => e.id === eid);
+                                    return `<div class="text-xs text-gray-500 flex items-center"><i class="fa-solid fa-angle-right mr-1 text-blue-500"></i> ${ex ? ex.name : 'Unknown'}</div>`
+                                }).join('')}
+                                ${p.exercises.length > 3 ? `<div class="text-xs text-gray-600 italic">+${p.exercises.length - 3} more</div>` : ''}
+                            </div>
+                        </div>
+                        <button class="mt-4 w-full bg-blue-600/20 text-blue-400 py-2 rounded text-xs font-bold hover:bg-blue-600 hover:text-white transition">${translator.get('start_plan')}</button>
+                    `;
+                    grid.appendChild(card);
+                });
+            },
+
+            loadPlan(plan) {
+                this.switchView('activePlan');
+                document.getElementById('active-plan-title').innerText = plan.name;
+                document.getElementById('active-plan-desc').innerText = `${plan.exercises.length} Exercises | ${plan.diff} Difficulty`;
+                
+                const planExercises = plan.exercises.map(id => this.db.find(e => e.id === id)).filter(e => e);
+                this.renderExercises(planExercises, null, true);
+            },
+
+            renderExercises(list, filter = null, isPlan = false) {
+                const grid = document.getElementById('workout-grid');
+                grid.innerHTML = '';
+                if(list.length === 0) { grid.innerHTML = '<div class="col-span-full text-center text-gray-500 py-10">No exercises found.</div>'; return; }
+
+                list.forEach(ex => {
+                    const card = document.createElement('div');
+                    card.className = 'glass-panel p-4 rounded-xl card-hoverable flex flex-col justify-between h-full relative group';
+                    
+                    let icon = 'fa-dumbbell';
+                    if (ex.eq === 'bodyweight') icon = 'fa-person-running';
+                    if (ex.muscle === 'cardio') icon = 'fa-heart-pulse';
+
+                    const diffColor = ex.diff === 'Beginner' ? 'text-green-400' : (ex.diff === 'Expert' ? 'text-red-400' : 'text-yellow-400');
+
+                    card.innerHTML = `
+                        <div>
+                            <div class="flex justify-between items-center mb-2">
+                                <div class="bg-blue-500/10 text-blue-400 p-2 rounded-md"><i class="fa-solid ${icon} text-lg"></i></div>
+                                <span class="text-[10px] font-bold px-2 py-0.5 rounded bg-gray-700 text-gray-300 uppercase">${translator.get(ex.muscle)}</span>
+                            </div>
+                            <h3 class="font-bold text-base mb-1">${ex.name}</h3>
+                            <p class="text-gray-400 text-xs mb-3 line-clamp-2">${ex.desc}</p>
+                            <div class="flex items-center justify-between mb-2">
+                                <span class="text-xs ${diffColor}"><i class="fa-solid fa-layer-group mr-1"></i> ${ex.diff}</span>
+                            </div>
+                        </div>
+                        <div class="flex space-x-2 mt-auto">
+                            <button onclick="workoutManager.showDetails('${ex.id}')" class="flex-1 bg-gray-700 hover:bg-gray-600 text-white py-1.5 rounded-lg text-xs font-bold transition">${translator.get('details')}</button>
+                            <button onclick="app.completeWorkout()" class="flex-1 btn-outline py-1.5 rounded-lg text-xs font-bold hover:bg-blue-600 hover:text-white hover:border-blue-600 transition"><i class="fa-solid fa-check"></i></button>
+                        </div>
+                    `;
+                    grid.appendChild(card);
+                });
+            },
+
+            showDetails(id) {
+                const ex = this.db.find(e => e.id === id);
+                if(!ex) return;
+                const content = document.getElementById('desc-content');
+                content.innerHTML = `
+                    <h2 class="text-2xl font-bold mb-2 text-white">${ex.name}</h2>
+                    <div class="flex space-x-2 mb-4">
+                        <span class="text-xs bg-blue-900 text-blue-200 px-2 py-1 rounded">${translator.get(ex.muscle)}</span>
+                        <span class="text-xs bg-gray-700 text-gray-300 px-2 py-1 rounded">${ex.diff}</span>
+                        <span class="text-xs bg-gray-700 text-gray-300 px-2 py-1 rounded">${ex.eq}</span>
+                    </div>
+                    <h3 class="font-bold text-blue-400 text-sm mb-1">Instructions</h3>
+                    <p class="text-gray-300 text-sm mb-4 leading-relaxed">${ex.desc}</p>
+                    <h3 class="font-bold text-yellow-400 text-sm mb-1"><i class="fa-solid fa-lightbulb mr-1"></i> ${translator.get('tips')}</h3>
+                    <p class="text-gray-400 text-xs leading-relaxed italic">"${ex.tips}"</p>
+                    <button onclick="document.getElementById('desc-modal').classList.add('hidden')" class="w-full mt-6 bg-gray-700 hover:bg-gray-600 py-2 rounded text-white text-sm font-bold">Close</button>
+                `;
+                document.getElementById('desc-modal').classList.remove('hidden');
+            },
+
+            refresh() { if(this.currentView === 'plans') this.renderPlans(); else if (this.currentView === 'exercises') this.filter(this.currentFilter); }
+        };
+
+        const dietManager = {
+            currentView: 'search',
+            baseUrl: 'https://www.themealdb.com/api/json/v1/1',
+            
+            // Expanded Diet Packs
+            packs: [
+                { name: "Muscle Builder", desc: "High protein, surplus calories.", food: ["Chicken Breast", "Rice", "Peanut Butter", "Whole Eggs", "Oats", "Bananas"] },
+                { name: "Fat Shredder", desc: "High volume, lower calorie.", food: ["Egg Whites", "Spinach", "White Fish", "Berries", "Greek Yogurt", "Potatoes"] },
+                { name: "Student Budget", desc: "Cheap, nutrient dense.", food: ["Canned Tuna", "Frozen Veggies", "Beans/Lentils", "Pasta", "Ground Beef", "Milk"] },
+                { name: "Keto Kickstart", desc: "Low carb, high healthy fats.", food: ["Avocado", "Bacon", "Salmon", "Almonds", "Cheese", "Olive Oil"] },
+                { name: "Vegan Power", desc: "Plant-based protein focus.", food: ["Tofu", "Tempeh", "Quinoa", "Lentils", "Chickpeas", "Hemp Seeds"] },
+                { name: "Paleo Primal", desc: "Ancestral eating, whole foods.", food: ["Grass-fed Beef", "Sweet Potatoes", "Nuts", "Fruit", "Eggs", "Veggies"] },
+                { name: "Hardgainer", desc: "Calorie dense for metabolism.", food: ["Whole Milk", "Nuts", "Dried Fruit", "Pasta", "Ground Beef", "Olive Oil"] },
+                { name: "Mediterranean", desc: "Heart healthy balance.", food: ["Fish", "Olive Oil", "Tomatoes", "Whole Grains", "Feta", "Legumes"] },
+                { name: "Intermittent Fast", desc: "Nutrient dense window.", food: ["Steak", "Eggs", "Avocado", "Rice", "Green Veggies", "Water"] }
+            ],
+
+            // Expanded Fridge List
+            fridgeList: [
+                { cat: "Proteins", items: ["Chicken Breast", "Tofu", "Eggs", "Greek Yogurt", "Canned Tuna", "Ground Beef/Turkey", "Cottage Cheese", "Salmon"] },
+                { cat: "Carbs", items: ["Oats", "Rice (White/Brown)", "Potatoes", "Pasta", "Whole Wheat Bread", "Quinoa", "Tortillas", "Cereal"] },
+                { cat: "Fats", items: ["Olive Oil", "Nuts/Seeds", "Avocado", "Peanut Butter", "Butter", "Cheese", "Coconut Oil"] },
+                { cat: "Veggies", items: ["Spinach", "Broccoli", "Carrots", "Frozen Mix", "Onions/Garlic", "Peppers", "Cucumber", "Tomatoes"] },
+                { cat: "Fruits", items: ["Bananas", "Apples", "Berries (Frozen)", "Oranges", "Grapes", "Kiwi"] },
+                { cat: "Hydration", items: ["Water", "Green Tea", "Black Coffee", "Sparkling Water", "Electrolytes"] },
+                { cat: "Flavor/Spices", items: ["Salt & Pepper", "Garlic Powder", "Paprika", "Soy Sauce", "Hot Sauce", "Lemon Juice"] },
+                { cat: "Dairy/Alt", items: ["Milk", "Almond Milk", "Cheese Slices", "Butter", "Yogurt"] }
+            ],
+
+            init() { 
+                this.fetchRandomForDashboard(); 
+                this.renderPacks();
+                this.renderFridge();
+            },
+
+            switchView(view) {
+                this.currentView = view;
+                document.querySelectorAll('.tab-diet-btn').forEach(b => {
+                    b.classList.remove('active', 'text-blue-500', 'border-blue-500');
+                    b.classList.add('text-gray-400');
+                });
+                const activeBtn = document.getElementById(`tab-diet-${view}`);
+                activeBtn.classList.add('active', 'text-blue-500', 'border-blue-500');
+                activeBtn.classList.remove('text-gray-400');
+
+                ['search', 'packs', 'fridge'].forEach(v => document.getElementById(`diet-view-${v}`).classList.add('hidden'));
+                document.getElementById(`diet-view-${view}`).classList.remove('hidden');
+            },
+
+            refresh() {
+                // re-render logic for diet if needed on language change
+                this.renderPacks();
+                this.renderFridge();
+            },
+
+            renderPacks() {
+                const container = document.getElementById('diet-view-packs');
+                container.innerHTML = '';
+                this.packs.forEach(p => {
+                    container.innerHTML += `
+                        <div class="glass-panel p-5 rounded-xl border-t-4 border-green-500">
+                            <h3 class="font-bold text-lg mb-1 text-white">${p.name}</h3>
+                            <p class="text-xs text-gray-400 mb-4">${p.desc}</p>
+                            <div class="flex flex-wrap gap-2">
+                                ${p.food.map(f => `<span class="text-xs bg-gray-700 px-2 py-1 rounded text-gray-200">${f}</span>`).join('')}
+                            </div>
+                        </div>
+                    `;
+                });
+            },
+
+            renderFridge() {
+                const container = document.getElementById('diet-view-fridge');
+                container.innerHTML = '';
+                this.fridgeList.forEach(c => {
+                    container.innerHTML += `
+                        <div class="glass-panel p-4 rounded-xl">
+                            <h3 class="font-bold text-blue-400 mb-3 border-b border-gray-700 pb-2">${c.cat}</h3>
+                            <ul class="grid grid-cols-2 gap-2">
+                                ${c.items.map(i => `<li class="text-sm text-gray-300 flex items-center"><i class="fa-solid fa-check text-green-500 mr-2 text-xs"></i> ${i}</li>`).join('')}
+                            </ul>
+                        </div>
+                    `;
+                });
+            },
+
+            async fetchRandomForDashboard() { try { const res = await fetch(`${this.baseUrl}/random.php`); const data = await res.json(); const el = document.getElementById('dashboard-meal'); if(el && data.meals) el.innerText = data.meals[0].strMeal; } catch (e) {} },
+            async search() {
+                const grid = document.getElementById('diet-results'); if(!grid) return;
+                grid.innerHTML = '<div class="col-span-full text-center py-4"><i class="fa-solid fa-circle-notch fa-spin text-xl"></i></div>';
+                const searchInput = document.getElementById('meal-search'); const term = searchInput.value || 'Chicken'; 
+                try {
+                    const res = await fetch(`${this.baseUrl}/search.php?s=${term}`); const data = await res.json();
+                    grid.innerHTML = '';
+                    if (!data.meals) { grid.innerHTML = '<div class="col-span-full text-center text-gray-400 text-sm">No meals found.</div>'; return; }
+                    data.meals.forEach(meal => {
+                        const card = document.createElement('div'); card.className = 'glass-panel rounded-xl overflow-hidden card-hoverable';
+                        card.innerHTML = `<div class="h-32 overflow-hidden relative group"><img src="${meal.strMealThumb}" class="w-full h-full object-cover" alt="${meal.strMeal}"><div class="absolute bottom-0 left-0 p-2 bg-gradient-to-t from-black/90 to-transparent w-full"><h3 class="font-bold text-sm truncate text-white">${meal.strMeal}</h3></div></div><div class="p-3"><button onclick="window.open('${meal.strSource || meal.strYoutube}', '_blank')" class="w-full bg-gray-700 hover:bg-gray-600 text-white py-1.5 rounded text-xs transition">${translator.get('view')} Recipe</button></div>`;
+                        grid.appendChild(card);
+                    });
+                } catch (e) { grid.innerHTML = '<div class="col-span-full text-center text-red-400 text-xs">Error loading.</div>'; }
+            }
+        };
+        document.addEventListener('DOMContentLoaded', () => { app.init(); });
+    </script>
+</body>
+</html>
